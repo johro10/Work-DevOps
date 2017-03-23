@@ -1,0 +1,57 @@
+/**********************************************
+* AutoText Procedure/Modality List            *
+*                                             *
+* Gets list of AutoText Name, Procedure       *
+* Codes, and Modalities of AutoTexts          *
+*                                             *
+* Script version 1.2                          *
+* Last Modified 2015/02/19                    *
+**********************************************/
+
+/* Create table for data report */
+If Object_ID('tempdb..#ATPFinal','U') Is Not Null Drop Table #ATPFinal
+Create Table #ATPFinal(
+Procs VarChar(Max), AutoTextName VarChar(100), AutoTextOwner VarChar(50), AutoTextOwnerName VarChar(50), AutoTextID Int, 
+Modality VarChar (300), Anatomy VarChar(300), ProcSiteName VarChar(100));
+
+/* Create CTE for list processing */
+With cteATPFull (Procs, AutoTextName, AutoTextID, Modality, Anatomy, ProcSiteName)
+As 
+(
+ Select PC.Code 'Procs', AT.Name 'AutoTextName', AT.AutoTextID 'AutoTextID', AT.Modality 'Modality', AT.Anatomy 'Anatomy', S.Name 'ProcSiteName'
+ From Comm4..AllAutoText AT (Nolock)
+ Left Outer Join Comm4..AutoTextProcedureCode ATP (Nolock) On ATP.AutoTextID = AT.AutoTextID
+ Left Outer Join Comm4..ProcedureCode PC (Nolock) On PC.ProcedureCodeID = ATP.ProcedureCodeID
+ Left Outer Join Comm4..Site S (Nolock) On S.SiteID = PC.SiteID
+)
+
+/*  Insert into Change Tracker */
+Insert Into #ATPFinal (Procs, AutoTextName, AutoTextID, Modality, Anatomy, ProcSiteName)
+Select IsNull(Stuff((SELECT ', ' + Procs FROM cteATPFull Where (AutoTextID = ATPC.AutoTextID And ProcSiteName = ATPC.ProcSiteName) For XML Path(''),
+ Type).value('text()[1]', 'VarChar(Max)'),1,2,''), '') As 'ProcCode',
+ AutoTextName, AutoTextID, IsNull(Modality,'') 'Modality', IsNull(Anatomy,'') 'Anatomy', IsNull(ProcSiteName, '') 'ProcSiteName'
+From cteATPFull ATPC (Nolock)
+Group By AutoTextName, AutoTextID, Modality, Anatomy, ProcSiteName
+
+/* Update list for Account Owner */
+Update ATC
+Set ATC.AutoTextOwner = AAT.AccountID, ATC.AutoTextOwnerName = IsNull(API.FirstName,'') + ' ' + IsNull((API.MiddleName+' '), '') + IsNull(API.LastName,'')
+From #ATPFinal ATC (Nolock)
+Join Comm4..AccountAutoText AAT (Nolock) On AAT.AutoTextID = ATC.AutoTextID
+Join Comm4..AccountPersonalInfo API (Nolock) On API.AccountID = AAT.AccountID
+
+/* Update list for Site Owner */
+Update ATC
+Set ATC.AutoTextOwner = 'Site', ATC.AutoTextOwnerName = 'Site: ' + S.Name
+From #ATPFinal ATC (Nolock)
+Join Comm4..SiteAutoText SAT (Nolock) On SAT.AutoTextID = ATC.AutoTextID
+Join Comm4..Site S (Nolock) On S.SiteID = SAT.SiteID
+
+
+/* Final select for data */
+Select AutoTextName, IsNull(AutoTextOwnerName, 'No Owner') 'AutoTextOwner', ProcSiteName, Procs 'Procedures', Modality, Anatomy
+From #ATPFinal (Nolock)
+Order By AutoTextOwner, AutoTextName, ProcSiteName
+
+
+Drop Table #ATPFinal

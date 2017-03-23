@@ -1,0 +1,6 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Nuance\PowerScribe360Perf]
+"EnablePerformance"="True"
+"DaysToKeepPerformanceLogs"="10"
+"PerformanceLog"=-

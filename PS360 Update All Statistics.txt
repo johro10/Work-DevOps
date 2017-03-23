@@ -1,0 +1,26 @@
+/* Last Modified 09/01/2017 */
+
+/* Declare Variable */
+Declare @ObjName VarChar(50)
+
+/* Create Temp Table */
+If Object_ID('tempdb..#UpdStat', 'U') Is Not Null Drop Table #UpdStat
+Create Table #UpdStat (Name VarChar(50), Upd Bit)
+
+/* Insert Data into Temp Table */
+Insert Into #UpdStat (Name, Upd)
+Select name, 0 from comm4.sys.all_objects
+Where type in ('U', 'V')
+And schema_id = 1
+And object_id In (Select object_id From comm4.sys.stats)
+Order By 1
+
+While (Select Count(*) From #UpdStat Where Upd = 0) > 0
+Begin
+ Set @ObjName = (Select Top 1 Name From #UpdStat Where Upd = 0)
+ Exec ('Update Statistics comm4.dbo.['+@ObjName+'] With FullScan')
+ Update #UpdStat Set Upd = 1 Where Name = @ObjName
+End
+
+/* Drop Table */
+Drop Table #UpdStat

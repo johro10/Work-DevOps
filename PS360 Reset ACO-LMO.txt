@@ -1,0 +1,6 @@
+/* This is run on the SUS database. /  
+/  Replace User with the loginname */ 
+UPDATE spark..jobtemplate 
+SET    Lastrun = Dateadd(dd, -7, Lastrun) 
+WHERE  Jobtype IN ( 1, 2 ) 
+       AND Resourceid = 'User'   

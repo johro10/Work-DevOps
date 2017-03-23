@@ -1,0 +1,88 @@
+If Exists (Select * From tempdb..sysobjects Where name Like '#TempFinal%')
+Drop Table #TempFinal
+Create Table #TempFinal
+(AccountID int, LastName varchar(50), FirstName varchar(50), LoginName varchar(50), ACO_Count int, 
+ACO_LastRun datetime, LMO_Count int, LMO_LastRun datetime, Report_Count int, Report_LastCreate datetime, AudioLength int)
+
+If Exists (Select * From tempdb..sysobjects Where name Like '#TempReport%')
+Drop Table #TempReport
+Create Table #TempReport
+(AccountID int, LastRun datetime, AudioLength int, Report_Count int)
+
+Insert Into #TempFinal
+ (AccountID, LastName, FirstName, LoginName, AudioLength, ACO_Count, LMO_Count)
+Select a.AccountID, p.LastName, p.FirstName, a.LoginName, 0,
+SUM(Case When ae.AccountEventTypeID = 19 Then 1 Else 0 End) As 'ACO_Count', 
+SUM(Case When ae.AccountEventTypeID = 20 Then 1 Else 0 End) As 'LMO_Count'
+From Comm4..Account (Nolock) a 
+Left Outer Join Comm4..AccountEvent (Nolock) ae On (ae.AccountID = a.AccountID And ae.AccountEventTypeID In (19, 20) And ae.EventTime >= DATEADD(ww,-2,GETDATE()))
+Join Comm4..SiteAccount (Nolock) s on a.AccountID=s.AccountID 
+Join Comm4..PersonalInfo (Nolock) p On a.PersonalInfoID = p.PersonalInfoID
+Where a.IsActive = 1 
+And s.RoleID in (1,2,7) 
+And a.LoginName Not In ('NUANCEADMIN', 'Test', 'admin')
+And a.LastLoginDate >= DateAdd(ww,-2,GETDATE()) 
+Group By a.AccountID, p.LastName, p.FirstName, a.LoginName
+Order By 1 
+
+Insert Into #TempReport
+(AccountID, AudioLength, LastRun, Report_Count)
+Select tf.AccountID, 0, MAX(r.CreateDate),
+SUM(Case When r.CreatorAcctID is Not Null Then 1 Else 0 End) As 'Report_Count'
+From #TempFinal tf
+Join Comm4..Report r On r.CreatorAcctID = tf.AccountID
+Group By tf.AccountID
+
+Update #TempReport
+Set AudioLength = COALESCE(Total.SumAudio, 0)
+From #TempReport (Nolock) tr
+Left Outer Join (Select CreatorAcctID, SUM((DictatedWordCount / 1.75)) As SumAudio From Comm4..Report (Nolock)
+Where CreateDate >= DATEADD(WW,-2,GETDATE())
+Group By CreatorAcctID) As Total
+On Total.CreatorAcctID = tr.AccountID
+
+Update #TempReport
+Set Report_Count = COALESCE((Select SUM(Case When r.CreatorAcctID Is Not Null Then 1 Else 0 End)
+From Comm4..Report (Nolock) r 
+Where r.CreatorAcctID = #TempReport.AccountID 
+And r.CreateDate>=DATEADD(ww,-2,GETDATE())), 0);
+
+With cteACO (AccountID, LastRun) As
+(
+Select tf.AccountID, MAX(aea.EventTime) From #TempFinal tf
+Join Comm4..AccountEvent aea On (aea.AccountID = tf.AccountID And aea.AccountEventTypeID = 19)
+Group By tf.AccountID
+), 
+cteLMO (AccountID, LastRun) As
+(
+Select tf.AccountID, MAX(ael.EventTime) From #TempFinal tf
+Join Comm4..AccountEvent ael On (ael.AccountID = tf.AccountID And ael.AccountEventTypeID = 20)
+Group By tf.AccountID
+)
+
+Update tf
+Set tf.ACO_LastRun = ta.LastRun, tf.LMO_LastRun = tl.LastRun, tf.Report_LastCreate = tr.LastRun, tf.AudioLength = tr.AudioLength, tf.Report_Count = tr.Report_Count
+From #TempFinal tf
+Left Outer Join cteACO ta On tf.AccountID = ta.AccountID
+Left Outer Join cteLMO tl On tf.AccountID = tl.AccountID
+Left Outer Join #TempReport tr On tf.AccountID = tr.AccountID
+
+
+
+If (Select COUNT(*) From #TempFinal Where (ACO_Count<1 Or LMO_Count<1) And Report_LastCreate>= DATEADD(ww,-2,GETDATE()) And AudioLength > 180) = 0 
+Begin
+ Select 'No ACO/LMO Issues' As Result
+End
+Else
+Begin
+ Select LastName, FirstName, LoginName, ACO_Count, ACO_LastRun As 'ACO Last Run', 
+ LMO_Count, LMO_LastRun As 'LMO Last Run', Report_Count, Report_LastCreate As 'Report Last Created', AudioLength From #TempFinal 
+ Where (ACO_Count < 1 
+ Or LMO_Count < 1)
+ And Report_LastCreate >= DATEADD(ww,-2,GETDATE())
+ And AudioLength > 180
+ Order By LastName, FirstName
+End
+
+Drop Table #TempFinal
+Drop Table #TempReport

@@ -1,0 +1,13 @@
+/*
+SQL Script to Get Count of Active Dictator Accounts 
+
+Issue:  Get active dictator accounts. 
+Resolution: Run the following SQL scripts 
+*/
+---------- 
+Select
+Sum (Case when a.IsActive = 1 Then 1 Else 0 End) As Active,  
+Sum (Case when a.IsActive = 0 Then 1 Else 0 End) As Inactive  
+From Comm4..Account a (Nolock)
+Inner Join Comm4..SiteAccount s (Nolock) On s.AccountID = a.AccountID
+Where s.RoleID in (1,2,7)

@@ -1,0 +1,24 @@
+IF EXISTS ( SELECT * FROM sys.databases WHERE name = N'Comm4' AND is_broker_enabled =0)
+BEGIN
+ALTER DATABASE [Comm4] SET SINGLE_USER WITH ROLLBACK IMMEDIATE 
+-- Make sure we are using a unique broker GUID. 
+IF EXISTS ( SELECT * FROM sys.databases AS s1 
+JOIN sys.databases AS s2 ON s1.service_broker_guid = s2.service_broker_guid 
+WHERE s1.name = N'Comm4' AND s2.is_broker_enabled =1) 
+ALTER DATABASE [Comm4] SET NEW_BROKER
+ELSE 
+ALTER DATABASE [Comm4] SET ENABLE_BROKER 
+ALTER DATABASE [Comm4] SET MULTI_USER 
+END 
+GO 
+
+-- Remove existing master key and re-add it to avoid encryption errors 
+USE [Comm4] 
+IF EXISTS ( SELECT * FROM sys.symmetric_keys WHERE name = '##MS_DatabaseMasterKey##' ) 
+BEGIN
+DROP MASTER KEY 
+END 
+GO 
+
+CREATE MASTER KEY ENCRYPTION BY PASSWORD = '67chUb=!3UdrebuD' 
+ALTER MASTER KEY ADD ENCRYPTION BY SERVICE MASTER KEY

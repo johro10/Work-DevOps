@@ -1,0 +1,1177 @@
+SQL Script to Create a PS360 Backup Maintenance Plan 
+
+Issue: Create a PS360 Backup Maintenance plan. 
+
+ 
+
+Resolution: Run the following SQL script to create a PS360 backup maintenance plan: 
+
+ 
+
+------- 
+
+/*********************************************************** 
+
+* Database Backup Maintenance Plan creation script * 
+
+* * 
+
+* Set the paths to a folder, and the days to * 
+
+* the length to keep in days * 
+
+* * 
+
+* Version 1.3 * 
+
+* Last Modified Date: Nov 10 2015 * 
+
+***********************************************************/ 
+
+ 
+
+/* Declare Variables */ 
+
+Declare @FullPath VarChar(500), --Path for full database backups 
+
+ @TransPath VarChar(500), --Path for transaction log backups 
+
+ @FullDaysToKeep Int, --Days to keep Full backups 
+
+ @TransDaysToKeep Int, --Days to keep Transaction backups 
+
+ @PlanXML XML, 
+
+ @FolderGUID UniqueIdentifier, 
+
+ @ServerName VarChar(20), 
+
+ @ReportDB VarChar(100), 
+
+ @LogPath VarChar(500), 
+
+ @SQLVer Char(4) 
+
+ 
+
+/* Set backup path and days to keep full backup and log backups. 
+
+ You must verify that the path for backups exist, or the plan will fail. */ 
+
+ 
+
+Set @FullPath = 'C:\Nuance\DatabaseBackup' 
+
+Set @TransPath = 'C:\Nuance\DatabaseBackup' 
+
+Set @FullDaysToKeep = 4 
+
+Set @TransDaysToKeep = 2 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+
+ 
+
+ 
+
+ 
+
+/********************************************************************** 
+
+* Set the rest of the variables and script for insert * 
+
+* * 
+
+* !!!!!!!!!!!Do not touch anything below this point!!!!!!!!!!!!!!!!! * 
+
+* * 
+
+**********************************************************************/ 
+
+Set @SQLVer = (Select Cast(serverproperty('productversion') As Char(4))) 
+
+If Cast(@SQLVer As dec) < '10.5' 
+
+ Set @LogPath = @TransPath 
+
+Else 
+
+Begin 
+
+ Set @LogPath = (Select Convert(VarChar(500), value_data) From msdb.sys.dm_server_registry Where 
+registry_key Like 'HKLM\Software\Microsoft\Microsoft SQL Server\%MSSQLSERVER\SQLServerAgent' 
+And value_name = 'WorkingDirectory') 
+
+ Set @LogPath = (Select Left(@LogPath, NullIf(Len(@LogPath)-1,-1))) 
+
+End 
+
+Set @ReportDB = '' 
+
+If db_id('ReportServer') Is Not Null 
+
+ Set @ReportDB = '<SQLTask:SelectedDatabases SQLTask:DatabaseName="ReportServer" />' 
+
+Set @ServerName = @@ServerName 
+
+Set @FolderGUID = (Select folderid From msdb..sysssispackagefolders Where foldername = 
+'Maintenance Plans') 
+
+Set @PlanXML = '<DTS:Executable xmlns:DTS="www.microsoft.com/SqlServer/Dts" 
+DTS:ExecutableType="SSIS.Package.2"><DTS:Property 
+DTS:Name="PackageFormatVersion">3</DTS:Property><DTS:Property DTS:Name="VersionComments" 
+/><DTS:Property DTS:Name="CreatorName">sa</DTS:Property><DTS:Property 
+DTS:Name="CreatorComputerName">'+@ServerName+'</DTS:Property><DTS:Property 
+DTS:Name="CreationDate" DTS:DataType="7">9/26/2013 6:13:08 PM</DTS:Property><DTS:Property 
+DTS:Name="PackageType">6</DTS:Property><DTS:Property 
+DTS:Name="ProtectionLevel">5</DTS:Property><DTS:Property 
+DTS:Name="MaxConcurrentExecutables">-1</DTS:Property><DTS:Property 
+DTS:Name="PackagePriorityClass">0</DTS:Property><DTS:Property 
+DTS:Name="VersionMajor">1</DTS:Property><DTS:Property 
+DTS:Name="VersionMinor">0</DTS:Property><DTS:Property 
+DTS:Name="VersionBuild">7</DTS:Property><DTS:Property DTS:Name="VersionGUID">{72AE0CBC-
+E5BE-4832-B395-9683C67FAE1C}</DTS:Property><DTS:Property 
+DTS:Name="EnableConfig">0</DTS:Property><DTS:Property DTS:Name="CheckpointFileName" 
+/><DTS:Property DTS:Name="SaveCheckpoints">0</DTS:Property><DTS:Property 
+DTS:Name="CheckpointUsage">0</DTS:Property><DTS:Property 
+DTS:Name="SuppressConfigurationWarnings">0</DTS:Property><DTS:ConnectionManager><DTS:Property DTS:Name="DelayValidation">0</DTS:Property><DTS:Property DTS:Name="ObjectName">Local 
+server connection</DTS:Property><DTS:Property DTS:Name="DTSID">{74D57339-98FA-4201-B335-
+4206B73274B7}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName">ADO.NET:SQL</DTS:Property><DTS:ObjectData><DTS:ConnectionManager><DTS:Property DTS:Name="Retain">0</DTS:Property><DTS:Property 
+
+
+DTS:Name="ConnectionString">server='''+@ServerName+''';Trusted_Connection=true;Application 
+Name=''Microsoft SQL Server Management Studio'';Pooling=false;Packet 
+Size=4096;multipleactiveresultsets=false;</DTS:Property></DTS:ConnectionManager></DTS:ObjectData></DTS:ConnectionManager><DTS:Property 
+DTS:Name="LastModifiedProductVersion">10.50.2500.0</DTS:Property><DTS:Property 
+DTS:Name="ForceExecValue">0</DTS:Property><DTS:Property DTS:Name="ExecValue" 
+DTS:DataType="3">0</DTS:Property><DTS:Property DTS:Name="ForceExecutionResult">-
+1</DTS:Property><DTS:Property DTS:Name="Disabled">0</DTS:Property><DTS:Property 
+DTS:Name="FailPackageOnFailure">0</DTS:Property><DTS:Property 
+DTS:Name="FailParentOnFailure">0</DTS:Property><DTS:Property 
+DTS:Name="MaxErrorCount">1</DTS:Property><DTS:Property 
+DTS:Name="ISOLevel">1048576</DTS:Property><DTS:Property 
+DTS:Name="LocaleID">1033</DTS:Property><DTS:Property 
+DTS:Name="TransactionOption">1</DTS:Property><DTS:Property 
+DTS:Name="DelayValidation">0</DTS:Property><DTS:Variable><DTS:Property DTS:Name="Expression" 
+/><DTS:Property DTS:Name="EvaluateAsExpression">0</DTS:Property><DTS:Property 
+DTS:Name="Namespace">global</DTS:Property><DTS:Property 
+DTS:Name="ReadOnly">0</DTS:Property><DTS:Property 
+DTS:Name="RaiseChangedEvent">0</DTS:Property><DTS:Property 
+DTS:Name="IncludeInDebugDump">2345</DTS:Property><DTS:VariableValue DTS:DataType="8" 
+/><DTS:Property DTS:Name="ObjectName">EmailReportToOperator</DTS:Property><DTS:Property 
+DTS:Name="DTSID">{380D0567-4753-4CC0-B461-8A91BDD68E7F}</DTS:Property><DTS:Property 
+DTS:Name="Description" /><DTS:Property DTS:Name="CreationName" 
+/></DTS:Variable><DTS:Variable><DTS:Property DTS:Name="Expression" /><DTS:Property 
+DTS:Name="EvaluateAsExpression">0</DTS:Property><DTS:Property 
+DTS:Name="Namespace">global</DTS:Property><DTS:Property 
+DTS:Name="ReadOnly">0</DTS:Property><DTS:Property 
+DTS:Name="RaiseChangedEvent">0</DTS:Property><DTS:Property 
+DTS:Name="IncludeInDebugDump">6789</DTS:Property><DTS:VariableValue DTS:DataType="11">-
+1</DTS:VariableValue><DTS:Property 
+DTS:Name="ObjectName">ExtendedLogging</DTS:Property><DTS:Property 
+DTS:Name="DTSID">{38DBD2D6-2705-4F0E-96D3-B163DDE3ED02}</DTS:Property><DTS:Property 
+DTS:Name="Description" /><DTS:Property DTS:Name="CreationName" 
+/></DTS:Variable><DTS:Variable><DTS:Property DTS:Name="Expression" /><DTS:Property 
+DTS:Name="EvaluateAsExpression">0</DTS:Property><DTS:Property 
+DTS:Name="Namespace">global</DTS:Property><DTS:Property 
+DTS:Name="ReadOnly">0</DTS:Property><DTS:Property 
+DTS:Name="RaiseChangedEvent">0</DTS:Property><DTS:Property 
+DTS:Name="IncludeInDebugDump">6789</DTS:Property><DTS:VariableValue 
+DTS:DataType="11">0</DTS:VariableValue><DTS:Property 
+DTS:Name="ObjectName">GenerateEmailReport</DTS:Property><DTS:Property 
+DTS:Name="DTSID">{98538E02-49FC-4331-BBF6-08060F76BB3E}</DTS:Property><DTS:Property 
+DTS:Name="Description" /><DTS:Property DTS:Name="CreationName" 
+/></DTS:Variable><DTS:Variable><DTS:Property DTS:Name="Expression" /><DTS:Property 
+DTS:Name="EvaluateAsExpression">0</DTS:Property><DTS:Property 
+DTS:Name="Namespace">global</DTS:Property><DTS:Property 
+DTS:Name="ReadOnly">0</DTS:Property><DTS:Property 
+DTS:Name="RaiseChangedEvent">0</DTS:Property><DTS:Property 
+
+
+ &lt;diagram fontclsid="{0BE35203-8F91-11CE-9DE3-00AA004BB851}" mouseiconclsid="{0BE35204-
+8F91-11CE-9DE3-00AA004BB851}" defaultlayout="Microsoft.DataWarehouse.Layout.GraphLayout100" 
+defaultlineroute="Microsoft.DataWarehouse.Layout.GraphLayout100" version="7" nextobject="4" 
+scale="100" pagebreakanchorx="0" pagebreakanchory="0" pagebreaksizex="0" pagebreaksizey="0" 
+scrollleft="0" scrolltop="0" gridx="150" gridy="150" marginx="1000" marginy="1000" zoom="100" 
+x="26749" y="10742" backcolor="15334399" defaultpersistence="2" PrintPageNumbersMode="3" 
+PrintMarginTop="0" PrintMarginBottom="635" PrintMarginLeft="0" PrintMarginRight="0" 
+marqueeselectionmode="1" mousepointer="0" snaptogrid="0" autotypeannotation="1" 
+showscrollbars="0" viewpagebreaks="0" donotforceconnectorsbehindshapes="1" 
+backpictureclsid="{00000000-0000-0000-0000-000000000000}"&gt; 
+
+ &lt;font&gt; 
+
+ &lt;ddsxmlobjectstreamwrapper 
+binary="01000000900144420100144d6963726f736f66742053616e73205365726966" /&gt; 
+
+
+ &lt;/font&gt; 
+
+ &lt;mouseicon&gt; 
+
+ &lt;ddsxmlobjectstreamwrapper binary="6c74000000000000" /&gt; 
+
+ &lt;/mouseicon&gt; 
+
+ &lt;/diagram&gt; 
+
+ &lt;layoutmanager&gt; 
+
+ &lt;ddsxmlobj /&gt; 
+
+ &lt;/layoutmanager&gt; 
+
+ &lt;ddscontrol controlprogid="DdsShapes.DdsObjectManagedBridge.2" tooltip="Back Up Database 
+Task" left="4551" top="3069" logicalid="3" controlid="3" masterid="0" hint1="0" hint2="0" 
+width="6403" height="3307" noresize="0" nomove="0" nodefaultattachpoints="0" autodrag="1" 
+usedefaultiddshape="1" selectable="1" showselectionhandles="1" allownudging="1" isannotation="0" 
+dontautolayout="0" groupcollapsed="0" tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobjectstreaminitwrapper binary="0008000003190000eb0c0000" /&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{F7B6686E-F4C5-4606-93DF-05EC901629EA}" 
+vartype="8" /&gt; 
+
+ &lt;property name="ShowConnectorSource" value="0" vartype="2" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;shape groupshapeid="0" groupnode="0" /&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+&lt;/dds&gt;&lt;/dwd:Layout&gt;&lt;/dwd:DbMaintDiagram&gt;&lt;/Sequence&gt;</DTS:Property><DTS:Property DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{11FFBAC7-E7CC-49C9-81E2-E041C23017A0}</DTS:Property><DTS:Property 
+DTS:Name="DTSID">{400D2C75-301E-4CF6-975B-ABC1DCB27E45}</DTS:Property><DTS:Property 
+DTS:Name="Description" /><DTS:Property DTS:Name="CreationName" 
+/></DTS:PackageVariable><DTS:PackageVariable><DTS:Property DTS:Name="PackageVariableValue" 
+DTS:DataType="8">&lt;DtsEventHandler xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:DtsEventHandlerDiagram&gt;&lt;dwd:Layout 
+/&gt;&lt;/dwd:DtsEventHandlerDiagram&gt;&lt;/DtsEventHandler&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{140BA778-76FC-4A79-B921-
+9DAFA05C8DF3}</DTS:Property><DTS:Property DTS:Name="DTSID">{328D5B08-A77F-4379-AE13-
+0065C8205A0D}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;DtsEventHandler 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-
+
+
+instance" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:DtsEventHandlerDiagram&gt;&lt;dwd:Layout 
+/&gt;&lt;/dwd:DtsEventHandlerDiagram&gt;&lt;/DtsEventHandler&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{1EDFA334-38C7-4575-BCA2-
+C71EB67DE988}</DTS:Property><DTS:Property DTS:Name="DTSID">{2B543143-0547-44C8-87FF-
+38D7EE0B5AC8}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;PrecedenceConstraint 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-
+instance" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:EvalOp&gt;Constraint&lt;/dwd:EvalOp&gt;&lt;/PrecedenceConstraint&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{1F23723B-9F9B-4134-A981-85E8CA45E4D3}</DTS:Property><DTS:Property 
+DTS:Name="DTSID">{99FFCACC-F31B-4AEE-BC7F-F34462F7277B}</DTS:Property><DTS:Property 
+DTS:Name="Description" /><DTS:Property DTS:Name="CreationName" 
+/></DTS:PackageVariable><DTS:PackageVariable><DTS:Property DTS:Name="PackageVariableValue" 
+DTS:DataType="8">&lt;DtsEventHandler xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:DtsEventHandlerDiagram&gt;&lt;dwd:Layout 
+/&gt;&lt;/dwd:DtsEventHandlerDiagram&gt;&lt;/DtsEventHandler&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{304F6C86-DD35-42E0-8EEE-
+07D87DB6BB35}</DTS:Property><DTS:Property DTS:Name="DTSID">{3FD1D14E-1F19-4E0E-B9CF-
+1E12729AD177}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;PrecedenceConstraint 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-
+instance" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+
+
+ &lt;diagram fontclsid="{0BE35203-8F91-11CE-9DE3-00AA004BB851}" mouseiconclsid="{0BE35204-
+8F91-11CE-9DE3-00AA004BB851}" defaultlayout="Microsoft.DataWarehouse.Layout.GraphLayout100" 
+defaultlineroute="Microsoft.DataWarehouse.Layout.GraphLayout100" version="7" nextobject="13" 
+scale="100" pagebreakanchorx="0" pagebreakanchory="0" pagebreaksizex="0" pagebreaksizey="0" 
+
+
+scrollleft="26" scrolltop="-119" gridx="150" gridy="150" marginx="1000" marginy="1000" zoom="100" 
+x="26749" y="10742" backcolor="15334399" defaultpersistence="2" PrintPageNumbersMode="3" 
+PrintMarginTop="0" PrintMarginBottom="635" PrintMarginLeft="0" PrintMarginRight="0" 
+marqueeselectionmode="1" mousepointer="0" snaptogrid="0" autotypeannotation="1" 
+showscrollbars="0" viewpagebreaks="0" donotforceconnectorsbehindshapes="1" 
+backpictureclsid="{00000000-0000-0000-0000-000000000000}"&gt; 
+
+ &lt;font&gt; 
+
+ &lt;ddsxmlobjectstreamwrapper binary="01000000900180380100065461686f6d61" /&gt; 
+
+ &lt;/font&gt; 
+
+ &lt;mouseicon&gt; 
+
+ &lt;ddsxmlobjectstreamwrapper binary="6c74000000000000" /&gt; 
+
+ &lt;/mouseicon&gt; 
+
+ &lt;/diagram&gt; 
+
+ &lt;layoutmanager&gt; 
+
+ &lt;ddsxmlobj /&gt; 
+
+ &lt;/layoutmanager&gt; 
+
+ &lt;ddscontrol controlprogid="DdsShapes.DdsObjectManagedBridge.2" tooltip="Back Up Database 
+(Transaction Log)" left="2592" top="119" logicalid="6" controlid="1" masterid="0" hint1="0" hint2="0" 
+width="3598" height="3307" noresize="0" nomove="0" nodefaultattachpoints="0" autodrag="1" 
+usedefaultiddshape="1" selectable="1" showselectionhandles="1" allownudging="1" isannotation="0" 
+dontautolayout="0" groupcollapsed="0" tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobjectstreaminitwrapper binary="000800000e0e0000eb0c0000" /&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{D0284E64-19A5-4786-9D27-FD7A516977C3}" 
+vartype="8" /&gt; 
+
+ &lt;property name="ShowConnectorSource" value="0" vartype="2" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;shape groupshapeid="0" groupnode="0" /&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+ &lt;ddscontrol controlprogid="DdsShapes.DdsObjectManagedBridge.2" tooltip="Maintenance 
+Cleanup Task" left="2831" top="5396" logicalid="7" controlid="2" masterid="0" hint1="0" hint2="0" 
+width="6059" height="2037" noresize="0" nomove="0" nodefaultattachpoints="0" autodrag="1" 
+usedefaultiddshape="1" selectable="1" showselectionhandles="1" allownudging="1" isannotation="0" 
+dontautolayout="0" groupcollapsed="0" tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobjectstreaminitwrapper binary="00080000ab170000f5070000" /&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{742E7D14-9346-454D-8B0A-1606BD232B26}" 
+vartype="8" /&gt; 
+
+ &lt;property name="ShowConnectorSource" value="0" vartype="2" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+
+ &lt;shape groupshapeid="0" groupnode="0" /&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+ &lt;ddscontrol controlprogid="DdsShapes.DdsObjectManagedBridge.2" tooltip="History Cleanup 
+Task" left="11006" top="1163" logicalid="8" controlid="3" masterid="0" hint1="0" hint2="0" 
+width="7594" height="2037" noresize="0" nomove="0" nodefaultattachpoints="0" autodrag="1" 
+usedefaultiddshape="1" selectable="1" showselectionhandles="1" allownudging="1" isannotation="0" 
+dontautolayout="0" groupcollapsed="0" tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobjectstreaminitwrapper binary="00080000aa1d0000f5070000" /&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{2AA19527-7D46-4C1B-9782-6E574133F163}" 
+vartype="8" /&gt; 
+
+ &lt;property name="ShowConnectorSource" value="0" vartype="2" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;shape groupshapeid="0" groupnode="0" /&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+ &lt;ddscontrol controlprogid="MSDDS.Polyline" left="3992" top="3027" logicalid="9" controlid="4" 
+masterid="0" hint1="0" hint2="0" width="2268" height="2869" noresize="0" nomove="0" 
+nodefaultattachpoints="1" autodrag="0" usedefaultiddshape="0" selectable="1" 
+showselectionhandles="0" allownudging="1" isannotation="0" dontautolayout="0" groupcollapsed="0" 
+tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;polyline endtypedst="3" endtypesrc="1" usercolor="32768" linestyle="0" linerender="2" 
+customendtypedstid="0" customendtypesrcid="0" adornsvisible="1" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{1F23723B-9F9B-4134-A981-85E8CA45E4D3}" 
+vartype="8" /&gt; 
+
+ &lt;property name="Virtual" value="0" vartype="11" /&gt; 
+
+ &lt;property name="VisibleAP" value="0" vartype="3" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;connector lineroutestyle="Microsoft.DataWarehouse.Layout.GraphLayout100" sourceid="1" 
+destid="2" sourceattachpoint="7" destattachpoint="10" segmenteditmode="0" 
+bendpointeditmode="0" bendpointvisibility="2" relatedid="0" virtual="0"&gt; 
+
+ &lt;point x="4391" y="3426" /&gt; 
+
+ &lt;point x="4391" y="4411" /&gt; 
+
+ &lt;point x="5860" y="4411" /&gt; 
+
+ &lt;point x="5860" y="5396" /&gt; 
+
+ &lt;/connector&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+
+ &lt;ddscontrol controlprogid="MSDDS.Polyline" left="6561" top="2701" logicalid="10" controlid="5" 
+masterid="0" hint1="0" hint2="0" width="8642" height="3095" noresize="0" nomove="0" 
+nodefaultattachpoints="1" autodrag="0" usedefaultiddshape="0" selectable="1" 
+showselectionhandles="0" allownudging="1" isannotation="0" dontautolayout="0" groupcollapsed="0" 
+tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;polyline endtypedst="3" endtypesrc="1" usercolor="32768" linestyle="0" linerender="2" 
+customendtypedstid="0" customendtypesrcid="0" adornsvisible="1" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{41F2B034-E26E-4663-8B4C-480BE78E5241}" 
+vartype="8" /&gt; 
+
+ &lt;property name="Virtual" value="0" vartype="11" /&gt; 
+
+ &lt;property name="VisibleAP" value="0" vartype="3" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;connector lineroutestyle="Microsoft.DataWarehouse.Layout.GraphLayout100" sourceid="2" 
+destid="3" sourceattachpoint="14" destattachpoint="13" segmenteditmode="0" 
+bendpointeditmode="0" bendpointvisibility="2" relatedid="0" virtual="0"&gt; 
+
+ &lt;point x="6960" y="5396" /&gt; 
+
+ &lt;point x="6960" y="4298" /&gt; 
+
+ &lt;point x="14803" y="4298" /&gt; 
+
+ &lt;point x="14803" y="3200" /&gt; 
+
+ &lt;/connector&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+&lt;/dds&gt;&lt;/dwd:Layout&gt;&lt;dwd:PersistedViewPortLeft&gt;26&lt;/dwd:PersistedViewPortLeft&gt;&lt;dwd:PersistedViewPortTop&gt;-
+119&lt;/dwd:PersistedViewPortTop&gt;&lt;/dwd:DbMaintDiagram&gt;&lt;/Sequence&gt;</DTS:Property><DTS:Property DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{590E8C52-CFF9-473D-A0DB-
+A22828DE5719}</DTS:Property><DTS:Property DTS:Name="DTSID">{A787735D-6C3B-45A4-83E8-
+0C79503E2E64}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;DtsEventHandler 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-
+instance" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:DtsEventHandlerDiagram&gt;&lt;dwd:Layout 
+/&gt;&lt;/dwd:DtsEventHandlerDiagram&gt;&lt;/DtsEventHandler&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{73A4C883-F126-4AD8-8475-
+
+
+CEA5BB6BC04B}</DTS:Property><DTS:Property DTS:Name="DTSID">{D8BAD319-076F-41BC-B059-
+9EF4883F0ECE}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;DtsEventHandler 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-
+instance" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:DtsEventHandlerDiagram&gt;&lt;dwd:Layout 
+/&gt;&lt;/dwd:DtsEventHandlerDiagram&gt;&lt;/DtsEventHandler&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{8566D76C-606E-4B4F-9363-
+EF9D18C8DCCD}</DTS:Property><DTS:Property DTS:Name="DTSID">{49A6E5F0-B206-4271-A1DD-
+1F7491E9A426}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;DtsEventHandler 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-
+instance" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:DtsEventHandlerDiagram&gt;&lt;dwd:Layout 
+/&gt;&lt;/dwd:DtsEventHandlerDiagram&gt;&lt;/DtsEventHandler&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{9E967D6B-5AB2-40C9-8063-
+86A602381BDB}</DTS:Property><DTS:Property DTS:Name="DTSID">{B72BE84E-49E7-4BFC-83B7-
+D9125B254743}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;PrecedenceConstraint 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-
+instance" xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:EvalOp&gt;ExpressionAndConstraint&lt;/dwd:EvalOp&gt;&lt;/PrecedenceConstraint&gt;</DTS:Property><DTS:Property DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{B7CBFC9C-26B0-49B0-BD46-
+A4FE3A3515D2}</DTS:Property><DTS:Property DTS:Name="DTSID">{057CDBBA-7064-4870-BCE0-
+1BB056E72F44}</DTS:Property><DTS:Property DTS:Name="Description" /><DTS:Property 
+DTS:Name="CreationName" /></DTS:PackageVariable><DTS:PackageVariable><DTS:Property 
+DTS:Name="PackageVariableValue" DTS:DataType="8">&lt;DtsEventHandler 
+
+
+ &lt;diagram fontclsid="{0BE35203-8F91-11CE-9DE3-00AA004BB851}" mouseiconclsid="{0BE35204-
+8F91-11CE-9DE3-00AA004BB851}" defaultlayout="Microsoft.DataWarehouse.Layout.GraphLayout100" 
+defaultlineroute="Microsoft.DataWarehouse.Layout.GraphLayout100" version="7" nextobject="13" 
+scale="100" pagebreakanchorx="0" pagebreakanchory="0" pagebreaksizex="0" pagebreaksizey="0" 
+scrollleft="26" scrolltop="-5129" gridx="150" gridy="150" marginx="1000" marginy="1000" 
+zoom="100" x="26749" y="10742" backcolor="15334399" defaultpersistence="2" 
+PrintPageNumbersMode="3" PrintMarginTop="0" PrintMarginBottom="635" PrintMarginLeft="0" 
+PrintMarginRight="0" marqueeselectionmode="1" mousepointer="0" snaptogrid="0" 
+autotypeannotation="1" showscrollbars="0" viewpagebreaks="0" 
+donotforceconnectorsbehindshapes="1" backpictureclsid="{00000000-0000-0000-0000-
+000000000000}"&gt; 
+
+ &lt;font&gt; 
+
+ &lt;ddsxmlobjectstreamwrapper 
+binary="01000000900144420100144d6963726f736f66742053616e73205365726966" /&gt; 
+
+
+ &lt;/font&gt; 
+
+ &lt;mouseicon&gt; 
+
+ &lt;ddsxmlobjectstreamwrapper binary="6c74000000000000" /&gt; 
+
+ &lt;/mouseicon&gt; 
+
+ &lt;/diagram&gt; 
+
+ &lt;layoutmanager&gt; 
+
+ &lt;ddsxmlobj /&gt; 
+
+ &lt;/layoutmanager&gt; 
+
+ &lt;ddscontrol controlprogid="DdsShapes.DdsObjectManagedBridge.2" tooltip="Back Up Database 
+(Full)" left="2196" top="119" logicalid="6" controlid="1" masterid="0" hint1="0" hint2="0" 
+width="3598" height="3307" noresize="0" nomove="0" nodefaultattachpoints="0" autodrag="1" 
+usedefaultiddshape="1" selectable="1" showselectionhandles="1" allownudging="1" isannotation="0" 
+dontautolayout="0" groupcollapsed="0" tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobjectstreaminitwrapper binary="000800000e0e0000eb0c0000" /&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{1A39C7FB-8758-46E5-89EA-92D1C99954C6}" 
+vartype="8" /&gt; 
+
+ &lt;property name="ShowConnectorSource" value="0" vartype="2" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;shape groupshapeid="0" groupnode="0" /&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+ &lt;ddscontrol controlprogid="DdsShapes.DdsObjectManagedBridge.2" tooltip="Check Database 
+Integrity Task" left="344" top="-4129" logicalid="7" controlid="2" masterid="0" hint1="0" hint2="0" 
+width="6694" height="2037" noresize="0" nomove="0" nodefaultattachpoints="0" autodrag="1" 
+usedefaultiddshape="1" selectable="1" showselectionhandles="1" allownudging="1" isannotation="0" 
+dontautolayout="0" groupcollapsed="0" tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobjectstreaminitwrapper binary="00080000261a0000f5070000" /&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{0640FA19-92F2-42C5-9765-6BFCBDAEBD86}" 
+vartype="8" /&gt; 
+
+ &lt;property name="ShowConnectorSource" value="0" vartype="2" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;shape groupshapeid="0" groupnode="0" /&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+ &lt;ddscontrol controlprogid="DdsShapes.DdsObjectManagedBridge.2" tooltip="Maintenance 
+Cleanup Task" left="8678" top="607" logicalid="8" controlid="3" masterid="0" hint1="0" hint2="0" 
+width="6059" height="2037" noresize="0" nomove="0" nodefaultattachpoints="0" autodrag="1" 
+usedefaultiddshape="1" selectable="1" showselectionhandles="1" allownudging="1" isannotation="0" 
+dontautolayout="0" groupcollapsed="0" tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+
+ &lt;ddsxmlobjectstreaminitwrapper binary="00080000ab170000f5070000" /&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{2F33689D-3AC7-45C8-ABA1-6DF0940D31BF}" 
+vartype="8" /&gt; 
+
+ &lt;property name="ShowConnectorSource" value="0" vartype="2" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;shape groupshapeid="0" groupnode="0" /&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+ &lt;ddscontrol controlprogid="MSDDS.Polyline" left="3292" top="-2491" logicalid="9" controlid="4" 
+masterid="0" hint1="0" hint2="0" width="1103" height="3110" noresize="0" nomove="0" 
+nodefaultattachpoints="1" autodrag="0" usedefaultiddshape="0" selectable="1" 
+showselectionhandles="0" allownudging="1" isannotation="0" dontautolayout="0" groupcollapsed="0" 
+tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;polyline endtypedst="3" endtypesrc="1" usercolor="32768" linestyle="0" linerender="2" 
+customendtypedstid="0" customendtypesrcid="0" adornsvisible="1" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{5244ADF9-7874-4235-89FA-234F25F90980}" 
+vartype="8" /&gt; 
+
+ &lt;property name="Virtual" value="0" vartype="11" /&gt; 
+
+ &lt;property name="VisibleAP" value="0" vartype="3" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;connector lineroutestyle="Microsoft.DataWarehouse.Layout.GraphLayout100" sourceid="2" 
+destid="1" sourceattachpoint="11" destattachpoint="6" segmenteditmode="0" 
+bendpointeditmode="0" bendpointvisibility="2" relatedid="0" virtual="0"&gt; 
+
+ &lt;point x="3691" y="-2092" /&gt; 
+
+ &lt;point x="3691" y="-987" /&gt; 
+
+ &lt;point x="3995" y="-987" /&gt; 
+
+ &lt;point x="3995" y="119" /&gt; 
+
+ &lt;/connector&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+ &lt;ddscontrol controlprogid="MSDDS.Polyline" left="5395" top="1226" logicalid="10" controlid="5" 
+masterid="0" hint1="0" hint2="0" width="3583" height="946" noresize="0" nomove="0" 
+nodefaultattachpoints="1" autodrag="0" usedefaultiddshape="0" selectable="1" 
+showselectionhandles="0" allownudging="1" isannotation="0" dontautolayout="0" groupcollapsed="0" 
+tabstop="1" visible="1" snaptogrid="0"&gt; 
+
+ &lt;control&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;polyline endtypedst="3" endtypesrc="1" usercolor="32768" linestyle="0" linerender="2" 
+customendtypedstid="0" customendtypesrcid="0" adornsvisible="1" /&gt; 
+
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/control&gt; 
+
+ &lt;layoutobject&gt; 
+
+ &lt;ddsxmlobj&gt; 
+
+ &lt;property name="LogicalObject" value="{D7386EFC-5AE4-42D4-A76C-832B3FB730C4}" 
+vartype="8" /&gt; 
+
+ &lt;property name="Virtual" value="0" vartype="11" /&gt; 
+
+ &lt;property name="VisibleAP" value="0" vartype="3" /&gt; 
+
+ &lt;/ddsxmlobj&gt; 
+
+ &lt;/layoutobject&gt; 
+
+ &lt;connector lineroutestyle="Microsoft.DataWarehouse.Layout.GraphLayout100" sourceid="1" 
+destid="3" sourceattachpoint="19" destattachpoint="24" segmenteditmode="0" 
+bendpointeditmode="0" bendpointvisibility="2" relatedid="0" virtual="0"&gt; 
+
+ &lt;point x="5794" y="1772" /&gt; 
+
+ &lt;point x="7236" y="1772" /&gt; 
+
+ &lt;point x="7236" y="1625" /&gt; 
+
+ &lt;point x="8678" y="1625" /&gt; 
+
+ &lt;/connector&gt; 
+
+ &lt;/ddscontrol&gt; 
+
+&lt;/dds&gt;&lt;/dwd:Layout&gt;&lt;dwd:PersistedViewPortLeft&gt;26&lt;/dwd:PersistedViewPortLeft&gt;&lt;dwd:PersistedViewPortTop&gt;-
+5129&lt;/dwd:PersistedViewPortTop&gt;&lt;/dwd:DbMaintDiagram&gt;&lt;/Sequence&gt;</DTS:Property><DTS:Property DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{E95B7619-9EA1-4B23-8D11-0E0F9C562CF4}</DTS:Property><DTS:Property 
+DTS:Name="DTSID">{84EBAE69-C753-4A3D-9FDF-17A921594E28}</DTS:Property><DTS:Property 
+DTS:Name="Description" /><DTS:Property DTS:Name="CreationName" 
+/></DTS:PackageVariable><DTS:PackageVariable><DTS:Property DTS:Name="PackageVariableValue" 
+DTS:DataType="8">&lt;DtsEventHandler xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xmlns:ddl2="http://schemas.microsoft.com/analysisservices/2003/engine/2" 
+xmlns:ddl2_2="http://schemas.microsoft.com/analysisservices/2003/engine/2/2" 
+xmlns:ddl100_100="http://schemas.microsoft.com/analysisservices/2008/engine/100/100" 
+xmlns:ddl200="http://schemas.microsoft.com/analysisservices/2010/engine/200" 
+xmlns:ddl200_200="http://schemas.microsoft.com/analysisservices/2010/engine/200/200" 
+xmlns:dwd="http://schemas.microsoft.com/DataWarehouse/Designer/1.0"&gt;&lt;dwd:DtsEventHandlerDiagram&gt;&lt;dwd:Layout 
+/&gt;&lt;/dwd:DtsEventHandlerDiagram&gt;&lt;/DtsEventHandler&gt;</DTS:Property><DTS:Property 
+DTS:Name="Namespace">dts-designer-1.0</DTS:Property><DTS:Property 
+DTS:Name="ObjectName">{F68C4A50-9D65-4F1B-8CEF-80679D60FE5B}</DTS:Property><DTS:Property 
+DTS:Name="DTSID">{CA3ECF3C-0359-4477-84AD-942981A1120E}</DTS:Property><DTS:Property 
+DTS:Name="Description" /><DTS:Property DTS:Name="CreationName" 
+/></DTS:PackageVariable></DTS:Executable>' 
+
+ 
+
+/* Maintenance Plan Insert */ 
+
+Insert Into msdb..sysssispackages (name, id, description, createdate, folderid, ownersid, packagedata, 
+packageformat, packagetype, vermajor, verminor, verbuild, vercomments, verid, isencrypted, 
+readrolesid, writerolesid) 
+
+
+Select 'Comm4 Backup', 'B46EB090-7A4C-422E-9C1B-A2E0BA73324F', 'Database Backups', GetDate(), 
+@FolderGUID, 0x01, Cast(@PlanXML As VarBinary(Max)), 0, 6, 1, 0, 7, '', '72AE0CBC-E5BE-4832-B395-
+9683C67FAE1C', 0, NULL, NULL 
+
+ 
+
+/****** Object: Job [Comm4 Backup.System DB Backup] ******/ 
+
+BEGIN TRANSACTION 
+
+DECLARE @ReturnCode INT 
+
+SELECT @ReturnCode = 0 
+
+/****** Object: JobCategory [Database Maintenance] ******/ 
+
+IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'Database Maintenance' 
+AND category_class=1) 
+
+BEGIN 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', 
+@name=N'Database Maintenance' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackSysDB 
+
+END 
+
+ 
+
+DECLARE @jobId BINARY(16) 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_job @job_name=N'Comm4 Backup.System DB Backup', 
+@enabled=1, @notify_level_eventlog=2, @notify_level_email=0, @notify_level_netsend=0, 
+@notify_level_page=0, @delete_level=0, @description=N'No description available.', 
+@category_name=N'Database Maintenance', @owner_login_name=N'sa', @job_id = @jobId OUTPUT 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackSysDB 
+
+/****** Object: Step [System DB Backup] ******/ 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'System DB Backup', 
+@step_id=1, @cmdexec_success_code=0, @on_success_action=1, @on_success_step_id=0, 
+@on_fail_action=2, @on_fail_step_id=0, @retry_attempts=0, @retry_interval=0, @os_run_priority=0, 
+@subsystem=N'SSIS', @command=N'/Server "$(ESCAPE_NONE(SRVR))" /SQL "Maintenance 
+Plans\Comm4 Backup" /set "\Package\System DB Backup.Disable;false"', @flags=0 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackSysDB 
+
+EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackSysDB 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobschedule @job_id=@jobId, @name=N'Comm4 
+Backup.System DB Backup', @enabled=1, @freq_type=4, @freq_interval=1, @freq_subday_type=1, 
+@freq_subday_interval=0, @freq_relative_interval=0, @freq_recurrence_factor=0, 
+@active_start_date=20151016, @active_end_date=99991231, @active_start_time=3000, 
+@active_end_time=235959, @schedule_uid=N'5ec43eec-b852-49a2-8fb1-9dcbaa045618' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackSysDB 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobserver @job_id = @jobId, @server_name = N'(local)' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackSysDB 
+
+COMMIT TRANSACTION 
+
+GOTO EndSaveSysDB 
+
+QuitWithRollbackSysDB: 
+
+ IF (@@TRANCOUNT > 0) ROLLBACK TRANSACTION 
+
+EndSaveSysDB: 
+
+ 
+
+GO 
+
+ 
+
+
+/****** Object: Job [Comm4 Backup.Nightly Full Backup] ******/ 
+
+BEGIN TRANSACTION 
+
+DECLARE @ReturnCode INT 
+
+SELECT @ReturnCode = 0 
+
+/****** Object: JobCategory [Database Maintenance] ******/ 
+
+IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'Database Maintenance' 
+AND category_class=1) 
+
+BEGIN 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', 
+@name=N'Database Maintenance' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackFBU 
+
+END 
+
+ 
+
+DECLARE @jobId BINARY(16) 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_job @job_name=N'Comm4 Backup.Nightly Full Backup', 
+@enabled=1, @notify_level_eventlog=2, @notify_level_email=0, @notify_level_netsend=0, 
+@notify_level_page=0, @delete_level=0, @description=N'No description available.', 
+@category_name=N'Database Maintenance', @owner_login_name=N'sa', @job_id = @jobId OUTPUT 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackFBU 
+
+/****** Object: Step [Nightly Full Backup] Script Date: 10/17/2015 21:59:22 ******/ 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'Nightly Full 
+Backup', @step_id=1, @cmdexec_success_code=0, @on_success_action=1, @on_success_step_id=0, 
+@on_fail_action=2, @on_fail_step_id=0, @retry_attempts=0, @retry_interval=0, @os_run_priority=0, 
+@subsystem=N'SSIS', @command=N'/Server "$(ESCAPE_NONE(SRVR))" /SQL "Maintenance 
+Plans\Comm4 Backup" /set "\Package\Nightly Full Backup.Disable;false"', @flags=0 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackFBU 
+
+EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackFBU 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobschedule @job_id=@jobId, @name=N'Comm4 
+Backup.Nightly Full Backup', @enabled=1, @freq_type=4, @freq_interval=1, @freq_subday_type=1, 
+@freq_subday_interval=0, @freq_relative_interval=0, @freq_recurrence_factor=0, 
+@active_start_date=20130926, @active_end_date=99991231, @active_start_time=10000, 
+@active_end_time=235959, @schedule_uid=N'3ecab815-649b-448e-a5f3-4b266ddbd2f3' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackFBU 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobserver @job_id = @jobId, @server_name = N'(local)' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackFBU 
+
+COMMIT TRANSACTION 
+
+GOTO EndSaveFBU 
+
+QuitWithRollbackFBU: 
+
+ IF (@@TRANCOUNT > 0) ROLLBACK TRANSACTION 
+
+EndSaveFBU: 
+
+ 
+
+GO 
+
+ 
+
+/****** Object: Job [Comm4 Backup.Nightly Full Backup] ******/ 
+
+BEGIN TRANSACTION 
+
+DECLARE @ReturnCode INT 
+
+SELECT @ReturnCode = 0 
+
+
+/****** Object: JobCategory [Database Maintenance] ******/ 
+
+IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'Database Maintenance' 
+AND category_class=1) 
+
+BEGIN 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', 
+@name=N'Database Maintenance' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackTBU 
+
+END 
+
+ 
+
+DECLARE @jobId BINARY(16) 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_job @job_name=N'Comm4 Backup.Hourly Transaction Log 
+Backup', @enabled=1, @notify_level_eventlog=2, @notify_level_email=0, @notify_level_netsend=0, 
+@notify_level_page=0, @delete_level=0, @description=N'No description available.', 
+@category_name=N'Database Maintenance', @owner_login_name=N'sa', @job_id = @jobId OUTPUT 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackTBU 
+
+/****** Object: Step [Hourly Transaction Log Backup] ******/ 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'Hourly Transaction 
+Log Backup', @step_id=1, @cmdexec_success_code=0, @on_success_action=1, 
+@on_success_step_id=0, @on_fail_action=2, @on_fail_step_id=0, @retry_attempts=0, 
+@retry_interval=0, @os_run_priority=0, @subsystem=N'SSIS', @command=N'/Server 
+"$(ESCAPE_NONE(SRVR))" /SQL "Maintenance Plans\Comm4 Backup" /set "\Package\Hourly 
+Transaction Log Backup.Disable;false"', @flags=0 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackTBU 
+
+EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackTBU 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobschedule @job_id=@jobId, @name=N'Comm4 
+Backup.Hourly Transaction Log Backup', @enabled=1, @freq_type=4, @freq_interval=1, 
+@freq_subday_type=8, @freq_subday_interval=1, @freq_relative_interval=0, 
+@freq_recurrence_factor=0, @active_start_date=20130926, @active_end_date=99991231, 
+@active_start_time=2000, @active_end_time=121959, @schedule_uid=N'ea622721-2546-487a-b35a-
+4a3b49049673' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackTBU 
+
+EXEC @ReturnCode = msdb.dbo.sp_add_jobserver @job_id = @jobId, @server_name = N'(local)' 
+
+IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollbackTBU 
+
+COMMIT TRANSACTION 
+
+GOTO EndSaveTBU 
+
+QuitWithRollbackTBU: 
+
+ IF (@@TRANCOUNT > 0) ROLLBACK TRANSACTION 
+
+EndSaveTBU: 
+
+ 
+
+GO 
+
+ 
+
+/* Declare variables for schedule sync */ 
+
+Declare @DBFullID Int, 
+
+ @DBTranID Int, 
+
+ @DBSysID Int, 
+
+ @FullJob UniqueIdentifier, 
+
+ @TranJob UniqueIdentifier, 
+
+
+ @SysJob UniqueIdentifier 
+
+ 
+
+/* Update GUID's and ID's to sync Agent jobs to maintenance plan tasks */ 
+
+Set @DBFullID = (Select schedule_id From msdb..sysschedules Where schedule_uid = '3ecab815-649b-
+448e-a5f3-4b266ddbd2f3') 
+
+Set @DBTranID = (Select schedule_id From msdb..sysschedules Where schedule_uid = 'ea622721-2546-
+487a-b35a-4a3b49049673') 
+
+Set @DBSysID = (Select schedule_id From msdb..sysschedules Where schedule_uid = '5ec43eec-b852-
+49a2-8fb1-9dcbaa045618') 
+
+Set @FullJob = (Select job_id from msdb..sysjobs Where name = 'Comm4 Backup.Nightly Full Backup') 
+
+Set @TranJob = (Select job_id from msdb..sysjobs Where name = 'Comm4 Backup.Hourly Transaction 
+Log Backup') 
+
+Set @SysJob = (Select job_id from msdb..sysjobs Where name = 'Comm4 Backup.System DB Backup') 
+
+ 
+
+/* Maintenance SubPlan Insert */ 
+
+Insert Into msdb..sysmaintplan_subplans (subplan_id, subplan_name, subplan_description, plan_id, 
+job_id, msx_job_id, schedule_id, msx_plan) 
+
+Select 'E95B7619-9EA1-4B23-8D11-0E0F9C562CF4', 'Nightly Full Backup', 'Comm4 Full Backup', 
+'B46EB090-7A4C-422E-9C1B-A2E0BA73324F', @FullJob, NULL, @DBFullID, 0 
+
+Union All 
+
+Select '590E8C52-CFF9-473D-A0DB-A22828DE5719', 'Hourly Transaction Log Backup', 'Comm4 
+Transaction Backup', 'B46EB090-7A4C-422E-9C1B-A2E0BA73324F', @TranJob, NULL, @DBTranID, 0 
+
+Union All 
+
+Select '11FFBAC7-E7CC-49C9-81E2-E041C23017A0', 'System DB Backup', 'System DB Backup', 
+'B46EB090-7A4C-422E-9C1B-A2E0BA73324F', @SysJob, NULL, @DBSysID, 0 
+
+ 
+
+/* Display Completed */ 
+
+If @@Error = 0 Select 'Maintenance Plan Created Successfully' 'Status' 
+
+ 
+
+

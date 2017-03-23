@@ -1,0 +1,57 @@
+use comm4
+go
+
+declare @sq varchar(100), @sp varchar(100), @ss varchar(100)
+
+select sq.name, s.name 'bs', 0 'dropped' into #tmpSQ from sys.service_queues sq (nolock)
+inner join sys.schemas s (nolock) on s.schema_id = sq.schema_id
+where sq.name like 'SqlQueryNotificationService%'
+
+select activation_procedure 'name', 0 'dropped' into #tmpSP from sys.service_queues
+where name like 'SqlQueryNotification%'
+
+while (select count(*) from #tmpSQ where dropped = 0) > 0
+begin
+ set @sq = (select top 1 name from #tmpSQ where dropped = 0)
+ set @ss = (select bs from #tmpSQ where name = @sq)
+ exec ('drop service ['+@sq+']')
+ exec ('drop queue ['+@ss+'].['+@sq+']')
+ update #tmpSQ set dropped = 1 where name = @sq
+end
+
+while (select count(*) from #tmpSP where dropped  = 0) > 0
+begin
+ set @sp = (select top 1 name from #tmpSP where dropped = 0)
+ exec ('drop procedure '+@sp+'')
+ update #tmpSP set dropped = 1 where name = @sp
+end
+
+drop table #tmpSQ
+drop table #tmpSP
+
+declare @psuser varchar(50) declare @pspswd varchar(50) declare @dbName varchar(255)
+set @psuser = 'ps360user'
+set @pspswd = 'ps360$Rad%Pws.Rg%x8a!h'
+
+select @dbName=db_name(dbid) from master.dbo.sysprocesses where spid=@@spid
+
+
+/************************************************************************/
+/*This section will delete powerscribe 360 user, then create user */
+/************************************************************************/
+/* drop,create 'pscribe' user */
+
+if exists (select * from sysusers where name = @psuser)
+begin
+exec sp_revokedbaccess @psuser
+end
+
+if exists (SELECT * FROM master.sys.server_principals where name = @psuser)
+begin
+exec sp_droplogin @psuser
+end
+
+exec sp_addlogin @psuser, @pspswd, @dbName 
+exec sp_grantdbaccess @psuser,@psuser
+exec sp_addrolemember 'db_owner',@psuser
+go

@@ -1,0 +1,149 @@
+/*
+SQL Script to Reset PS360 Database
+
+Issue:  Reset PS360 Database.
+Resolution: Run the following SQL script to reset PS360 database:
+*/
+-------
+
+/*
+This script resets the database by clearing all data
+from Order, Report, Patient, Visit tables and related data
+*/
+
+
+--Bridge Events
+delete from BridgeEvent
+print 'finished BridgeEvents: ' + Convert(varchar, getdate())
+go
+
+--Attachments
+Delete from Attachment
+print 'finished Attachments: ' + Convert(varchar, getdate())
+go
+
+--Usage
+Delete from AutotextUsage
+Delete from WorkListUsage
+print 'finished Usage: ' + Convert(varchar, getdate())
+go
+
+--Notes
+Delete from Note
+print 'finished Notes: ' + Convert(varchar, getdate())
+go
+
+--Order
+Delete from OrderAttachment Delete from ProcedureStudy Delete from OrderClinicalCode
+
+Delete from OrderCustomFieldXTab
+
+--Disable triggers for faster execution
+ALTER TABLE [OrderCustomField] DISABLE TRIGGER ALL Delete from OrderCustomField
+--Set triggers Back to normal
+ALTER TABLE [OrderCustomField] ENABLE TRIGGER ALL Delete from OrderNote
+--Disable triggers for faster execution
+ALTER TABLE [OrderProcedure] DISABLE TRIGGER ALL Delete from OrderProcedure
+--Set triggers Back to normal
+ALTER TABLE [OrderProcedure] ENABLE TRIGGER ALL
+print 'finished Order objects: ' + Convert(varchar, getdate())
+go
+
+delete from OrderEvent go
+
+--Disable triggers for faster execution
+ALTER TABLE [Order] DISABLE TRIGGER ALL Delete from [order]
+--Set triggers Back to normal
+ALTER TABLE [order] ENABLE TRIGGER ALL
+print 'finished Order and Related objects: ' + Convert(varchar, getdate())
+go
+
+--Report
+Delete from Audio
+Delete from ReportAudio
+Delete From ReportAttachment
+
+--Disable triggers for faster execution
+ALTER TABLE ReportAddendum DISABLE TRIGGER ALL Delete from ReportAddendum
+--Set triggers Back to normal
+ALTER TABLE ReportAddendum ENABLE TRIGGER ALL
+
+Delete from ReportContributor Delete from ReportFinding Delete from ReportNote
+Delete from ReportReview go
+
+--AccountSession may reference ReportEvents to be deleted
+Update AccountSession set LastReportEventID=NULL
+go
+
+Delete from ReportEvent go
+
+--Although cascades exist here I added these just in case
+Delete from NLUConceptCode
+Delete from NLUConcept
+Delete from NLURecommendation
+Delete from ReportNLUResult go
+
+--Although cascades exist here I added these just in case
+Delete from CommunEventAccess
+Delete from CommunEvent
+
+Delete from VisitReport go
+
+--Disable triggers for faster execution
+ALTER TABLE Report DISABLE TRIGGER ALL
+
+--Disable foreign key constraints for OriginalReportID
+ALTER TABLE Report NOCHECK CONSTRAINT ALL
+
+--Now delete all rows from report
+Delete from Report
+
+--Set Constraints back to normal
+ALTER TABLE Report CHECK CONSTRAINT ALL
+
+--Set triggers Back to normal
+ALTER TABLE Report ENABLE TRIGGER ALL
+print 'finished Report and Related objects: ' + Convert(varchar, getdate())
+go
+
+--Visit
+Delete from Visit
+print 'finished Visit: ' + Convert(varchar, getdate())
+go
+
+--Patient
+Delete From PatientAttachment
+Delete from PatientNote
+
+Select PersonalInfoID
+into #tempPFIDs from patient
+
+Delete from patient
+
+Delete from PersonalInfo
+where PersonalInfoID in (Select
+PersonalInfoID from #tempPFIDs)
+
+
+print 'finished Patient and Related objects: ' + Convert(varchar, getdate())
+go
+
+--Account Session
+Delete from AccountSession
+print 'finished account session: ' + Convert(varchar, getdate())
+go
+
+Update Statistics [Report]
+go
+
+Update Statistics [Order]
+go
+
+Update Statistics [Visit]
+go
+
+Update Statistics [Patient]
+go
+
+Update Statistics [PersonalInfo]
+print 'finished reseting DB: ' + Convert(varchar, getdate())

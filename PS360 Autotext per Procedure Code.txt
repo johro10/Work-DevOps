@@ -1,0 +1,61 @@
+/**********************************************
+* AutoText List per Procedure Code            *
+*                                             *
+* Gets list of AutoText assigned to           *
+* a specific procedure code                   *
+*                                             *
+* Script version 1.0                          *
+* Last Modified 11/19/15                      *
+**********************************************/
+
+Declare @Proc VarChar(50)
+
+/**************************************************
+* Replace %ProcedureCode% with the Procedure Code *
+**************************************************/
+Set @Proc = '%ProcedureCode%'
+
+
+
+
+
+
+
+
+/* Create temp table for processing */
+If Object_ID('tempdb..#ATPFull', 'U') Is Not Null Drop Table #ATPFull
+Create Table #ATPFull(
+Procs VarChar(50), AutoTextName VarChar(100), AutoTextOwner VarChar(50), AutoTextOwnerName VarChar(100), AutoTextID Int, 
+Modality VarChar(Max), Anatomy VarChar(Max), ProcSiteName VarChar(100))
+
+/* Setup data for change list */
+Insert Into #ATPFull (Procs, AutoTextName, AutoTextID, Modality, Anatomy, ProcSiteName)
+Select PC.Code, AT.Name, ATP.AutoTextID, AT.Modality, AT.Anatomy, S.Name
+From Comm4..AutoTextProcedureCode ATP (Nolock)
+Join Comm4..ProcedureCode PC (Nolock) On PC.ProcedureCodeID = ATP.ProcedureCodeID
+Join Comm4..AllAutoText AT (Nolock) On AT.AutoTextID = ATP.AutoTextID
+Join Comm4..Site S (Nolock) On S.SiteID = PC.SiteID
+Where PC.Code = @Proc
+
+/* Update list for Account Owner */
+Update ATC
+Set ATC.AutoTextOwner = AAT.AccountID, ATC.AutoTextOwnerName = IsNull(API.FirstName,'') + ' ' + IsNull((API.MiddleName+' '), '') + IsNull(API.LastName,'')
+From #ATPFull ATC (Nolock)
+Join Comm4..AccountAutoText AAT (Nolock) On AAT.AutoTextID = ATC.AutoTextID
+Join Comm4..AccountPersonalInfo API (Nolock) On API.AccountID = AAT.AccountID
+ 
+/* Update list for Site Owner */
+Update ATC
+Set ATC.AutoTextOwner = 'Site', ATC.AutoTextOwnerName = 'Site: ' + S.Name
+From #ATPFull ATC (Nolock)
+Join Comm4..SiteAutoText SAT (Nolock) On SAT.AutoTextID = ATC.AutoTextID
+Join Comm4..Site S (Nolock) On S.SiteID = SAT.SiteID
+
+
+/* Final select for data */
+Select AutoTextName, IsNull(AutoTextOwnerName, 'No Owner') 'AutoTextOwner', ProcSiteName, Procs 'Procedure', Modality, Anatomy
+From #ATPFull (Nolock)
+Order By AutoTextOwner
+
+
+Drop Table #ATPFull
